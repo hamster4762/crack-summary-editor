@@ -5,6 +5,8 @@
 // @description  크랙의 장기 요약 메모리를 한꺼번에 편집하고 관리합니다. (version 관리방식: 크랙UI변경.기능추가및수정.핫픽스)
 // @author       gemini
 // @match        https://crack.wrtn.ai/*
+// @updateURL    https://github.com/hamster4762/crack-summary-editor/raw/refs/heads/main/crack-summary-editor.user.js
+// @downloadURL  https://github.com/hamster4762/crack-summary-editor/raw/refs/heads/main/crack-summary-editor.user.js
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
