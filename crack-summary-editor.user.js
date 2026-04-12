@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         크랙 요약 메모리 텍스트 편집기
 // @namespace    https://crack.wrtn.ai/
-// @version      1.0.0
+// @version      1.1.0
 // @description  크랙의 장기 요약 메모리를 한꺼번에 편집하고 관리합니다. (version 관리방식: 크랙UI변경.기능추가및수정.핫픽스)
 // @author       gemini
 // @match        https://crack.wrtn.ai/*
@@ -272,6 +272,50 @@
         .btn-primary:hover { background: #1d4ed8; }
         .btn-primary:disabled { background: #94a3b8; border-color: #94a3b8; cursor: not-allowed; }
         .btn:disabled:not(.btn-primary) { opacity: 0.5; cursor: not-allowed; }
+
+        /* Dark Mode Overrides */
+        body[data-theme="dark"] #summary-editor-modal {
+            background: #242321;
+            color: #F0EFEB;
+        }
+
+        body[data-theme="dark"] .modal-header,
+        body[data-theme="dark"] .modal-footer {
+            background: #2E2D2B;
+            border-color: #42413D;
+        }
+
+        body[data-theme="dark"] .pane-label { color: #d1d5db; }
+        body[data-theme="dark"] #selection-count { color: #9ca3af; }
+
+        body[data-theme="dark"] #summary-edit-container {
+            border-color: #42413D;
+            background: #141413;
+        }
+
+        body[data-theme="dark"] #summary-edit-area {
+            color: #F0EFEB;
+        }
+
+        body[data-theme="dark"] #summary-preview-area {
+            background: #1a1918;
+            border-color: #42413D;
+            color: #F0EFEB;
+        }
+
+        body[data-theme="dark"] .btn {
+            background: #2E2D2B;
+            color: #F0EFEB;
+            border-color: #42413D;
+        }
+        body[data-theme="dark"] .btn:hover { background: #42413D; }
+
+        body[data-theme="dark"] .diff-added { background-color: #064e3b; color: #a7f3d0; }
+        body[data-theme="dark"] .diff-modified { background-color: #78350f; color: #fef3c7; }
+        body[data-theme="dark"] .diff-deleted { background-color: #7f1d1d; color: #fecaca; }
+        body[data-theme="dark"] .error-block { border-color: #ef4444; background-color: #450a0a; }
+        body[data-theme="dark"] #change-summary { color: #9ca3af; }
+        body[data-theme="dark"] #summary-close-x { color: #F0EFEB; }
     `;
 
     function injectStyles() {
