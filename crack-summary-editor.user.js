@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         크랙 요약 메모리 텍스트 편집기
 // @namespace    https://crack.wrtn.ai/
-// @version      1.1.0
+// @version      1.2.0
 // @description  크랙의 장기 요약 메모리를 한꺼번에 편집하고 관리합니다. (version 관리방식: 크랙UI변경.기능추가및수정.핫픽스)
 // @author       gemini
 // @match        https://crack.wrtn.ai/*
@@ -242,6 +242,7 @@
             white-space: pre-wrap;
         }
 
+        .diff-summary-box { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid; border-color: #d1d5db; }
         .diff-added { background-color: #dcfce7; color: #166534; padding: 2px 4px; border-radius: 2px; }
         .diff-modified { background-color: #fef9c3; color: #854d0e; padding: 2px 4px; border-radius: 2px; }
         .diff-deleted { background-color: #fee2e2; color: #991b1b; padding: 2px 4px; border-radius: 2px; text-decoration: line-through; }
@@ -310,6 +311,7 @@
         }
         body[data-theme="dark"] .btn:hover { background: #42413D; }
 
+        body[data-theme="dark"] .diff-summary-box { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid; border-color: #42413D; }
         body[data-theme="dark"] .diff-added { background-color: #064e3b; color: #a7f3d0; }
         body[data-theme="dark"] .diff-modified { background-color: #78350f; color: #fef3c7; }
         body[data-theme="dark"] .diff-deleted { background-color: #7f1d1d; color: #fecaca; }
@@ -555,7 +557,7 @@
         // 1. 수정 및 추가 확인
         parsed.forEach(p => {
             const div = document.createElement('div');
-            div.style.marginBottom = '12px';
+            div.className = 'diff-summary-box';
 
             if (!p.isValidFormat) {
                 hasAnyError = true;
@@ -633,7 +635,7 @@
             if (!parsedIds.has(s._id)) {
                 delCount++;
                 const div = document.createElement('div');
-                div.style.marginBottom = '12px';
+                div.className = 'diff-summary-box';
                 const titleSpan = document.createElement('span');
                 titleSpan.className = 'diff-deleted';
                 titleSpan.innerText = `[${s.title}] @${s._id} (삭제됨)`;
