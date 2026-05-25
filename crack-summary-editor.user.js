@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         크랙 요약 메모리 텍스트 편집기
 // @namespace    https://crack.wrtn.ai/
-// @version      1.2.0
+// @version      1.2.1
 // @description  크랙의 장기 요약 메모리를 한꺼번에 편집하고 관리합니다. (version 관리방식: 크랙UI변경.기능추가및수정.핫픽스)
 // @author       gemini
 // @match        https://crack.wrtn.ai/*
@@ -380,6 +380,9 @@
         editor.oninput = () => {
             updateHighlights();
             saveBtn.disabled = true;
+            if (saveBtn.innerText == '저장완료') {
+                saveBtn.innerText = '저장';
+            }
         };
 
         const updateSelectionCount = () => {
@@ -660,7 +663,8 @@
     }
 
     async function saveChanges() {
-        const editorValue = document.getElementById('summary-edit-area').value;
+        const editorArea = document.getElementById('summary-edit-area');
+        const editorValue = editorArea.value;
         const parsed = parseEditorContent(editorValue);
         
         const fetchedMap = new Map(fetchedSummaries.map(s => [s._id, s]));
@@ -670,15 +674,14 @@
         const toCreate = [];
         const toDelete = [];
 
-        // 업데이트 및 생성 분류
+        // 데이터 분류 단계
         parsed.forEach((p, index) => {
             if (p.id && fetchedMap.has(p.id)) {
                 const original = fetchedMap.get(p.id);
                 if (original.title !== p.title || original.summary !== p.summary) {
-                    toUpdate.push(p);
+                    toUpdate.push({ ...p, originalIndex: index });
                 }
             } else if (!p.id) {
-                // 위치 정보 계산
                 let position = null;
                 // 위쪽에서 가장 가까운 ID 찾기
                 for (let i = index - 1; i >= 0; i--) {
@@ -700,7 +703,6 @@
             }
         });
 
-        // 삭제 분류
         fetchedSummaries.forEach(s => {
             if (!parsedIds.has(s._id)) {
                 toDelete.push(s._id);
@@ -713,32 +715,42 @@
             return;
         }
 
-        if (!confirm(`총 ${totalTasks}개의 변경사항을 저장하시겠습니까?`)) return;
-
         const btn = document.getElementById('summary-save-btn');
         btn.disabled = true;
         btn.innerText = '저장 중...';
 
-        let successCount = 0;
+        const failedTasks = [];
+        const createdIdMap = new Map(); // 신규 생성 성공 항목의 인덱스별 새 ID 매핑
 
-        // 1. 삭제 먼저 수행
+        // 1. 삭제 태스크 실행
         for (const id of toDelete) {
+            const originalItem = fetchedMap.get(id);
             const res = await apiRequest('DELETE', `/summaries/${id}`);
-            if (res) successCount++;
+            if (res) {
+                fetchedSummaries = fetchedSummaries.filter(s => s._id !== id);
+            } else {
+                failedTasks.push(`[삭제 실패] ${originalItem ? originalItem.title : id}`);
+            }
         }
 
-        // 2. 업데이트 수행
+        // 2. 수정 태스크 실행
         for (const item of toUpdate) {
             const res = await apiRequest('PATCH', `/summaries/${item.id}`, {
                 title: item.title,
                 summary: item.summary
             });
-            if (res) successCount++;
+            if (res) {
+                const target = fetchedSummaries.find(s => s._id === item.id);
+                if (target) {
+                    target.title = item.title;
+                    target.summary = item.summary;
+                }
+            } else {
+                failedTasks.push(`[수정 실패] ${item.title}`);
+            }
         }
 
-        // 3. 생성 수행 (순서 유지를 위해 역순 처리 로직이 필요할 수 있으나, 
-        // 여기서는 단순하게 위에서 아래로 reference를 참조하여 생성)
-        // 같은 referenceId를 가진 그룹은 역순으로 생성해야 의도한 순서가 됨
+        // 3. 생성 태스크 그룹화 및 실행
         const createGroups = new Map();
         toCreate.forEach(item => {
             const key = item.position ? `${item.position.referenceSummaryId}_${item.position.placement}` : 'none';
@@ -747,9 +759,6 @@
         });
 
         for (const [key, items] of createGroups) {
-            // placement가 below인 경우 역순으로 생성해야 순서가 유지됨 (ID -> N1 -> N2 순서라면 N2 생성 후 N1 생성)
-            // 하지만 referenceId가 고정이라면 N1 생성 후 N2를 N1 아래에 생성해야 함.
-            // 여기서는 referenceId가 기존 ID이므로, N2를 ID 아래에 먼저 만들고 N1을 ID 아래에 만들면 ID -> N1 -> N2가 됨.
             const sortedItems = (items[0].position?.placement === 'below') ? [...items].reverse() : items;
             
             for (const item of sortedItems) {
@@ -762,13 +771,51 @@
                 if (item.position) payload.position = item.position;
                 
                 const res = await apiRequest('POST', '/summaries', payload);
-                if (res) successCount++;
+                if (res && res.data && res.data._id) {
+                    const newId = res.data._id;
+                    createdIdMap.set(item.originalIndex, newId);
+                    fetchedSummaries.push({
+                        _id: newId,
+                        title: item.title,
+                        summary: item.summary,
+                        type: 'longTerm'
+                    });
+                } else {
+                    failedTasks.push(`[추가 실패] ${item.title}`);
+                }
             }
         }
 
-        alert(`${successCount} / ${totalTasks} 건의 작업이 완료되었습니다.`);
-        await loadSummaries();
-        btn.innerText = '저장';
+        // 4. 에디터 텍스트의 부분 업데이트 연산 (중요)
+        // 실패한 항목들은 원본 형태를 그대로 유지하므로, 전체 덮어쓰기 대신 파싱 배열의 개별 블록만 치환합니다.
+        const updatedBlocks = parsed.map((p, idx) => {
+            if (createdIdMap.has(idx)) {
+                // 생성이 성공한 항목에 매핑된 새 ID 부착
+                return `[${p.title}] @${createdIdMap.get(idx)}\n${p.summary}`;
+            }
+            // 실패했거나, 수정 성공했거나, 변함없는 항목은 기존에 유저가 보던 블록 그대로 재조립
+            return `[${p.title}]${p.id ? ' @' + p.id : ''}\n${p.summary}`;
+        });
+
+        // 갱신된 블록 결합 및 상태 동기화
+        const newEditorValue = updatedBlocks.join('\n\n');
+        editorArea.value = newEditorValue;
+        initialEditorValue = newEditorValue; // 현재의 상태를 기준값으로 세팅하여 창 닫기 경고 방지
+
+        // 하이라이트 및 Diff 프리뷰 즉시 갱신 (성공한 데이터는 Diff에서 사라지고 실패작만 남음)
+        updateHighlights();
+        showPreview();
+
+        // 5. 결과 리포트 출력
+        const successCount = totalTasks - failedTasks.length;
+        if (failedTasks.length > 0) {
+            alert(`저장 완료 (일부 실패):\n- 성공: ${successCount} 건\n- 실패: ${failedTasks.length} 건\n\n[실패 목록]\n${failedTasks.join('\n')}\n\n실패한 항목은 편집창에 그대로 남아있으니 수정 후 재시도하세요.`);
+            btn.disabled = false;
+            btn.innerText = '저장';
+        } else {
+            btn.disabled = true;
+            btn.innerText = '저장완료';
+        }
     }
 
     // --- 버튼 주입 ---
