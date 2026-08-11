@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         크랙 요약 메모리 텍스트 편집기
 // @namespace    https://crack.wrtn.ai/
-// @version      1.2.2
+// @version      2.0.0
 // @description  크랙의 장기 요약 메모리를 한꺼번에 편집하고 관리합니다. (version 관리방식: 크랙UI변경.기능추가및수정.핫픽스)
 // @author       gemini
 // @match        https://crack.wrtn.ai/*
@@ -198,7 +198,6 @@
             margin: 0;
             border: none;
             font-family: 'JetBrains Mono', 'Fira Code', monospace;
-            font-size: 14px;
             line-height: 1.5;
             white-space: pre-wrap;
             word-break: break-all;
@@ -237,7 +236,6 @@
             border-radius: 8px;
             background: #f3f4f6;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
             overflow-y: auto;
             white-space: pre-wrap;
         }
@@ -827,7 +825,7 @@
 
         const btn = document.createElement('button');
         btn.id = 'summary-editor-btn';
-        btn.innerText = '요약 메모리 편집기';
+        btn.innerText = '📜';
         btn.onclick = (e) => {
             e.stopPropagation();
             e.preventDefault();
