@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         크랙 요약 메모리 텍스트 편집기
 // @namespace    https://crack.wrtn.ai/
-// @version      1.2.1
+// @version      1.2.2
 // @description  크랙의 장기 요약 메모리를 한꺼번에 편집하고 관리합니다. (version 관리방식: 크랙UI변경.기능추가및수정.핫픽스)
 // @author       gemini
 // @match        https://crack.wrtn.ai/*
@@ -822,7 +822,7 @@
 
     function injectButton() {
         // 상단 헤더 컨테이너 찾기
-        const headerContainer = document.querySelector('.absolute.z-\\[5\\] .flex.gap-3.items-center');
+        const headerContainer = document.querySelector('.group\\/header .flex.gap-3.items-center');
         if (!headerContainer || document.getElementById('summary-editor-btn')) return;
 
         const btn = document.createElement('button');
