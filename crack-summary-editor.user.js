@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         크랙 요약 메모리 텍스트 편집기
 // @namespace    https://crack.wrtn.ai/
-// @version      2.0.0
+// @version      2.1.0
 // @description  크랙의 장기 요약 메모리를 한꺼번에 편집하고 관리합니다. (version 관리방식: 크랙UI변경.기능추가및수정.핫픽스)
 // @author       gemini
 // @match        https://crack.wrtn.ai/*
@@ -108,16 +108,16 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 0 12px;
-            height: 36px;
-            border-radius: 6px;
+            padding: 0;
+            width: 28px;
+            height: 28px;
+            border-radius: 9999px;
             background: #2563eb;
             color: white;
             font-weight: 600;
             font-size: 13px;
             border: none;
             cursor: pointer;
-            margin-right: 8px;
             transition: background 0.2s;
         }
         #summary-editor-btn:hover { background: #1d4ed8; }
@@ -156,6 +156,15 @@
         }
 
         .modal-header h2 { margin: 0; font-size: 18px; font-weight: 700; }
+
+        .modal-header-main {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            min-width: 0;
+        }
+
+        .mobile-tabs { display: none; }
 
         .modal-body {
             flex: 1;
@@ -316,6 +325,69 @@
         body[data-theme="dark"] .error-block { border-color: #ef4444; background-color: #450a0a; }
         body[data-theme="dark"] #change-summary { color: #9ca3af; }
         body[data-theme="dark"] #summary-close-x { color: #F0EFEB; }
+
+        @media (max-width: 768px) {
+            #summary-editor-modal-overlay {
+                inset: var(--summary-viewport-offset-top, 0px) 0 auto;
+                height: var(--summary-viewport-height, 100dvh);
+                box-sizing: border-box;
+                padding: 15px;
+            }
+
+            #summary-editor-modal {
+                width: 100%;
+                height: 100%;
+                border-radius: 10px;
+            }
+
+            .modal-header {
+                padding: 8px 12px;
+            }
+
+            .modal-header-main { gap: 10px; }
+            .modal-header h2 { font-size: 15px; white-space: nowrap; }
+
+            .mobile-tabs {
+                display: flex;
+                gap: 4px;
+            }
+
+            .mobile-tab {
+                padding: 5px 8px;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                background: transparent;
+                color: inherit;
+                font-size: 12px;
+                cursor: pointer;
+            }
+
+            .mobile-tab[aria-selected="true"] {
+                background: #2563eb;
+                border-color: #2563eb;
+                color: white;
+            }
+
+            .modal-body {
+                min-height: 0;
+                padding: 8px;
+                gap: 0;
+            }
+
+            .editor-pane, .preview-pane { min-height: 0; }
+            #summary-editor-modal[data-mobile-tab="edit"] .preview-pane { display: none; }
+            #summary-editor-modal[data-mobile-tab="preview"] .editor-pane { display: none; }
+
+            .modal-footer {
+                flex-shrink: 0;
+                padding: 8px 12px;
+            }
+
+            .btn { padding: 7px 12px; }
+
+            body[data-theme="dark"] .mobile-tab { border-color: #42413D; }
+            body[data-theme="dark"] .mobile-tab[aria-selected="true"] { border-color: #2563eb; }
+        }
     `;
 
     function injectStyles() {
@@ -325,6 +397,57 @@
     }
 
     let initialEditorValue = '';
+    let modalViewportCleanup = null;
+
+    function activateMobileTab(tab) {
+        const modal = document.getElementById('summary-editor-modal');
+        if (!modal) return;
+
+        modal.dataset.mobileTab = tab;
+        modal.querySelectorAll('.mobile-tab').forEach(button => {
+            button.setAttribute('aria-selected', String(button.dataset.tab === tab));
+        });
+    }
+
+    function setupModalViewport() {
+        const overlay = document.getElementById('summary-editor-modal-overlay');
+        if (!overlay) return;
+
+        const previousBodyOverflow = document.body.style.overflow;
+        let bodyLocked = false;
+
+        const updateViewport = () => {
+            const viewport = window.visualViewport;
+            if (!viewport || window.innerWidth > 768) {
+                overlay.style.removeProperty('--summary-viewport-height');
+                overlay.style.removeProperty('--summary-viewport-offset-top');
+                if (bodyLocked) {
+                    document.body.style.overflow = previousBodyOverflow;
+                    bodyLocked = false;
+                }
+                return;
+            }
+            if (!bodyLocked) {
+                document.body.style.overflow = 'hidden';
+                bodyLocked = true;
+            }
+            overlay.style.setProperty('--summary-viewport-height', `${viewport.height}px`);
+            overlay.style.setProperty('--summary-viewport-offset-top', `${viewport.offsetTop}px`);
+        };
+
+        updateViewport();
+        window.addEventListener('resize', updateViewport);
+        window.visualViewport?.addEventListener('resize', updateViewport);
+        window.visualViewport?.addEventListener('scroll', updateViewport);
+
+        modalViewportCleanup = () => {
+            window.removeEventListener('resize', updateViewport);
+            window.visualViewport?.removeEventListener('resize', updateViewport);
+            window.visualViewport?.removeEventListener('scroll', updateViewport);
+            if (bodyLocked) document.body.style.overflow = previousBodyOverflow;
+            modalViewportCleanup = null;
+        };
+    }
 
     function createModal() {
         if (document.getElementById('summary-editor-modal-overlay')) return;
@@ -332,13 +455,19 @@
         const overlay = document.createElement('div');
         overlay.id = 'summary-editor-modal-overlay';
         overlay.innerHTML = `
-            <div id="summary-editor-modal">
+            <div id="summary-editor-modal" data-mobile-tab="edit">
                 <div class="modal-header">
-                    <h2>요약 메모리 편집기</h2>
+                    <div class="modal-header-main">
+                        <h2>요약 메모리 편집기</h2>
+                        <div class="mobile-tabs" role="tablist" aria-label="요약 메모리 보기">
+                            <button type="button" class="mobile-tab" data-tab="edit" role="tab" aria-selected="true" aria-controls="summary-editor-pane">편집창</button>
+                            <button type="button" class="mobile-tab" data-tab="preview" role="tab" aria-selected="false" aria-controls="summary-preview-pane">미리보기</button>
+                        </div>
+                    </div>
                     <button id="summary-close-x" style="background:none; border:none; font-size:20px; cursor:pointer;">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <div class="editor-pane">
+                    <div id="summary-editor-pane" class="editor-pane" role="tabpanel">
                         <div class="pane-header">
                             <div class="pane-label">편집창 (형식: [제목] @id)</div>
                             <div id="selection-count"></div>
@@ -348,7 +477,7 @@
                             <textarea id="summary-edit-area" spellcheck="false" placeholder="[제목] @id\n내용\n\n[새 제목]\n내용"></textarea>
                         </div>
                     </div>
-                    <div class="preview-pane">
+                    <div id="summary-preview-pane" class="preview-pane" role="tabpanel">
                         <div class="pane-header">
                             <div class="pane-label">미리보기 (Diff)</div>
                             <div id="change-summary" style="font-size: 12px; color: #6b7280;"></div>
@@ -365,6 +494,7 @@
         `;
 
         document.body.appendChild(overlay);
+        setupModalViewport();
 
         const editor = document.getElementById('summary-edit-area');
         const highlight = document.getElementById('summary-edit-highlight');
@@ -399,10 +529,16 @@
         editor.onkeyup = updateSelectionCount;
 
         // 이벤트 바인딩
-        document.getElementById('summary-preview-btn').onclick = showPreview;
+        document.getElementById('summary-preview-btn').onclick = () => {
+            showPreview();
+            activateMobileTab('preview');
+        };
         document.getElementById('summary-save-btn').onclick = saveChanges;
         document.getElementById('summary-close-btn').onclick = handleClose;
         document.getElementById('summary-close-x').onclick = handleClose;
+        document.querySelectorAll('.mobile-tab').forEach(button => {
+            button.onclick = () => activateMobileTab(button.dataset.tab);
+        });
 
         // 자동 불러오기
         loadSummaries();
@@ -485,6 +621,7 @@
     function closeModal() {
         const overlay = document.getElementById('summary-editor-modal-overlay');
         if (overlay) overlay.remove();
+        modalViewportCleanup?.();
     }
 
     // --- 비즈니스 로직 ---
@@ -677,7 +814,7 @@
             if (p.id && fetchedMap.has(p.id)) {
                 const original = fetchedMap.get(p.id);
                 if (original.title !== p.title || original.summary !== p.summary) {
-                    toUpdate.push({ ...p, originalIndex: index });
+                    toUpdate.push(p);
                 }
             } else if (!p.id) {
                 let position = null;
@@ -756,7 +893,7 @@
             createGroups.get(key).push(item);
         });
 
-        for (const [key, items] of createGroups) {
+        for (const items of createGroups.values()) {
             const sortedItems = (items[0].position?.placement === 'below') ? [...items].reverse() : items;
             
             for (const item of sortedItems) {
@@ -819,9 +956,10 @@
     // --- 버튼 주입 ---
 
     function injectButton() {
-        // 상단 헤더 컨테이너 찾기
-        const headerContainer = document.querySelector('.group\\/header .flex.gap-3.items-center');
-        if (!headerContainer || document.getElementById('summary-editor-btn')) return;
+        // 채팅 입력창의 도구 버튼 영역 찾기
+        const inputBox = document.querySelector('[data-sgb-input-box]');
+        const buttonContainer = inputBox?.querySelector('.flex.items-center.space-x-2');
+        if (!buttonContainer || document.getElementById('summary-editor-btn')) return;
 
         const btn = document.createElement('button');
         btn.id = 'summary-editor-btn';
@@ -832,12 +970,13 @@
             createModal();
         };
 
-        headerContainer.prepend(btn);
+        buttonContainer.appendChild(btn);
     }
 
     // 초기화
     function init() {
         injectStyles();
+        injectButton();
         
         // MutationObserver로 버튼이 사라지면 다시 주입
         const observer = new MutationObserver(() => {
@@ -845,8 +984,6 @@
         });
         observer.observe(document.body, { childList: true, subtree: true });
 
-        // 주기적 체크 (안전장치)
-        setInterval(injectButton, 1000);
     }
 
     if (document.readyState === 'loading') {
