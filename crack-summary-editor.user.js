@@ -330,13 +330,14 @@
             #summary-editor-modal-overlay {
                 inset: var(--summary-viewport-offset-top, 0px) 0 auto;
                 height: var(--summary-viewport-height, 100dvh);
-                align-items: stretch;
+                box-sizing: border-box;
+                padding: 15px;
             }
 
             #summary-editor-modal {
                 width: 100%;
                 height: 100%;
-                border-radius: 0;
+                border-radius: 10px;
             }
 
             .modal-header {
@@ -813,7 +814,7 @@
             if (p.id && fetchedMap.has(p.id)) {
                 const original = fetchedMap.get(p.id);
                 if (original.title !== p.title || original.summary !== p.summary) {
-                    toUpdate.push({ ...p, originalIndex: index });
+                    toUpdate.push(p);
                 }
             } else if (!p.id) {
                 let position = null;
@@ -892,7 +893,7 @@
             createGroups.get(key).push(item);
         });
 
-        for (const [key, items] of createGroups) {
+        for (const items of createGroups.values()) {
             const sortedItems = (items[0].position?.placement === 'below') ? [...items].reverse() : items;
             
             for (const item of sortedItems) {
