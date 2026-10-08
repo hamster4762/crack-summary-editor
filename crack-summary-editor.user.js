@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         크랙 요약 메모리 텍스트 편집기
 // @namespace    https://crack.wrtn.ai/
-// @version      2.1.0
+// @version      2.1.1
 // @description  크랙의 장기 요약 메모리를 한꺼번에 편집하고 관리합니다. (version 관리방식: 크랙UI변경.기능추가및수정.핫픽스)
 // @author       gemini
 // @match        https://crack.wrtn.ai/*
@@ -956,21 +956,26 @@
     // --- 버튼 주입 ---
 
     function injectButton() {
-        // 채팅 입력창의 도구 버튼 영역 찾기
-        const inputBox = document.querySelector('[data-sgb-input-box]');
-        const buttonContainer = inputBox?.querySelector('.flex.items-center.space-x-2');
-        if (!buttonContainer || document.getElementById('summary-editor-btn')) return;
+        const shortcutButtons = document.querySelectorAll('button[aria-label="단축어 패널 열기"]');
+        const shortcutButton = Array.from(shortcutButtons).find(button => button.getBoundingClientRect().width > 0);
+        const buttonContainer = shortcutButton?.parentElement;
+        if (!buttonContainer) return;
 
-        const btn = document.createElement('button');
-        btn.id = 'summary-editor-btn';
-        btn.innerText = '📜';
-        btn.onclick = (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            createModal();
-        };
+        let btn = document.getElementById('summary-editor-btn');
+        if (!btn) {
+            btn = document.createElement('button');
+            btn.id = 'summary-editor-btn';
+            btn.innerText = '📜';
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                createModal();
+            };
+        }
 
-        buttonContainer.appendChild(btn);
+        if (btn.parentElement !== buttonContainer) {
+            buttonContainer.appendChild(btn);
+        }
     }
 
     // 초기화
